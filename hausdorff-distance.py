@@ -183,7 +183,7 @@ def hausdorff_distance(image, color, fill_color):
             get_maximum_distance(dev_layer_outline_pixels_positions_list, \
                 ref_layer_outline_pixels_positions_list)
 
-        # Now i make the lines to point out the two distances (obviusly, the
+        # Now i make the lines to point out the two distances (obviously, the
         # maximum distance will have a wider line)
         red = (255.0, 0.0, 0.0, 255.0)
 

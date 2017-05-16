@@ -8,7 +8,7 @@ from math import pow, sqrt
 from gimpcolor import RGB
 
 def euclidean_distance(point_one, point_two):
-    """ Calculate the euclidean distance.
+    """ Calculates the euclidean distance.
 
         Args:
             point_one (tuple)
@@ -22,7 +22,7 @@ def euclidean_distance(point_one, point_two):
 
 
 def get_maximum_distance(ref_list, dev_list):
-    """ Calculate the distance between two list of pixels
+    """ Calculates the distance between two list of pixels
 
         Args:
             ref_list (list)
@@ -40,19 +40,19 @@ def get_maximum_distance(ref_list, dev_list):
     dev_pixel = (0, 0)
     maximum_distance = float("-inf")
     for index, pixel_ref_list in enumerate(ref_list):
-        # Update the progress bar
+        # Updates the progress bar
         gimp.progress_update(float(index) / float(len(ref_list)))
 
         minimum_distance = float("inf")
         for pixel_dev_list in dev_list:
             distance = euclidean_distance(pixel_ref_list, pixel_dev_list)
 
-            # Update the minimum distance
+            # Updates the minimum distance
             if distance < minimum_distance:
                 minimum_distance = distance
                 dev_pixel = pixel_dev_list
 
-        # Update the maximum distance
+        # Updates the maximum distance
         if minimum_distance > maximum_distance:
             maximum_distance = minimum_distance
             ref_pixel = pixel_ref_list
@@ -61,7 +61,7 @@ def get_maximum_distance(ref_list, dev_list):
 
 
 def search_pixel(layer, color, pixel, outline_pixels):
-    """ Search the outline pixels with a DFS
+    """ Searches the outline pixels with a DFS
 
         Args:
             layer (gimp.Drawable): the layer over do the search
@@ -73,11 +73,11 @@ def search_pixel(layer, color, pixel, outline_pixels):
             list: the list of the outline pixels
     """
 
-    # I use a `try except` to avoid exceptions that can araise
+    # Uses a `try except` to avoid exceptions that can arise
     # if the method goes through an illegal position in the
     # image (e.g. a pixel that does not exists)
     try:
-        # Goes on in the search if the color that it has met is the target color
+        # Goes on in the search if the color encountered is the target color
         if RGB(*layer.get_pixel(pixel)) == color:
             outline_pixels.append(pixel)
             target_pixels = [
@@ -132,8 +132,8 @@ def get_outline_pixels_positions(image, layer, color, fill_color):
             break
 
     # Selecting the target area
-    pdb.gimp_image_select_contiguous_color(image, 0, layer, \
-        target_pixel[0], target_pixel[1])
+    pdb.gimp_image_select_contiguous_color(
+        image, 0, layer, target_pixel[0], target_pixel[1])
 
     # Shrink the selection
     pdb.gimp_selection_shrink(image, 1)
@@ -202,7 +202,7 @@ def hausdorff_distance(path, color, fill_color, path_to_result_file):
             dev_layer_distance, dev_pixel_one, dev_pixel_two = get_maximum_distance(
                 dev_layer_outline_pixels_positions_list, ref_layer_outline_pixels_positions_list)
 
-            # Now i make the lines to point out the two distances (obviusly, the
+            # Now i make the lines to point out the two distances (obviously, the
             # maximum distance will have a wider line)
             red = (255.0, 0.0, 0.0, 255.0)
 
