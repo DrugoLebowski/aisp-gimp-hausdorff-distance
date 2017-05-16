@@ -1,0 +1,7 @@
+#!//usr/bin/env bash
+
+sudo cp ./hausdorff-distance.py ~/Library/Application\ Support/GIMP/2.8/plug-ins/
+sudo cp ./hausdorff-distance-directory.py ~/Library/Application\ Support/GIMP/2.8/plug-ins/
+
+sudo chmod u+x ~/Library/Application\ Support/GIMP/2.8/plug-ins/hausdorff-distance.py \
+    ~/Library/Application\ Support/GIMP/2.8/plug-ins/hausdorff-distance-directory.py
