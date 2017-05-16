@@ -4,7 +4,7 @@ import os
 import os.path
 
 from gimpfu import *
-from math import pow, sqrt
+from math import pow, sqrt, floor
 from gimpcolor import RGB
 
 def euclidean_distance(point_one, point_two):
@@ -36,28 +36,28 @@ def get_maximum_distance(ref_list, dev_list):
 
     gimp.progress_init("Calculating distance...")
 
-    ref_pixel = (0, 0)
-    dev_pixel = (0, 0)
-    maximum_distance = float("-inf")
-    for index, pixel_ref_list in enumerate(ref_list):
+    point_one = (0, 0)
+    point_two = (0, 0)
+    maximum_distance = 0.0
+    for index, pixel_ref in enumerate(ref_list):
         # Updates the progress bar
         gimp.progress_update(float(index) / float(len(ref_list)))
 
+        minimum_pixel = None
         minimum_distance = float("inf")
-        for pixel_dev_list in dev_list:
-            distance = euclidean_distance(pixel_ref_list, pixel_dev_list)
-
-            # Updates the minimum distance
+        for pixel_dev in dev_list:
+            distance = euclidean_distance(pixel_ref, pixel_dev)
             if distance < minimum_distance:
                 minimum_distance = distance
-                dev_pixel = pixel_dev_list
+                minimum_pixel = pixel_dev
 
         # Updates the maximum distance
         if minimum_distance > maximum_distance:
             maximum_distance = minimum_distance
-            ref_pixel = pixel_ref_list
+            point_one = pixel_ref
+            point_two = minimum_pixel
 
-    return maximum_distance, dev_pixel, ref_pixel
+    return maximum_distance, point_one, point_two
 
 
 def search_pixel(layer, color, pixel, outline_pixels):
@@ -84,14 +84,14 @@ def search_pixel(layer, color, pixel, outline_pixels):
                 (pixel[0], pixel[1] + 1), # Up
                 (pixel[0] + 1, pixel[1]), # Right
                 (pixel[0], pixel[1] - 1), # Down
-                (pixel[0] + 1, pixel[1])  # Left
+                (pixel[0] - 1, pixel[1])  # Left
             ]
 
             # Searching
             for target_pixel in target_pixels:
                 if target_pixel not in outline_pixels:
-                    outline_pixels = search_pixel(layer, color, target_pixel, \
-                        outline_pixels)
+                    outline_pixels = search_pixel(
+                        layer, color, target_pixel, outline_pixels)
     except Exception as e:
         gimp.message("Raised exception while saving the outline pixels: " + \
             str(e.message))
@@ -114,10 +114,7 @@ def get_outline_pixels_positions(image, layer, color, fill_color):
 
     gimp.progress_init("Searching the outline pixels for the layer...")
 
-    # Clear an eventually selection
-    pdb.gimp_selection_clear(image)
-
-    # Initially i search the first pixel colored with the target color
+    # Initially searches the first pixel colored with the target color
     target_pixel = (0, 0)
     found_pixel = False
     for x in range(layer.width):
@@ -127,18 +124,18 @@ def get_outline_pixels_positions(image, layer, color, fill_color):
                 target_pixel = (x, y)
                 found_pixel = True
 
-        # If the target color is found, then stop the search
+        # If the target color is found, then stops the search
         if found_pixel:
             break
 
-    # Selecting the target area
+    # Selects the target area
     pdb.gimp_image_select_contiguous_color(
         image, 0, layer, target_pixel[0], target_pixel[1])
 
-    # Shrink the selection
+    # Shrinks the selection
     pdb.gimp_selection_shrink(image, 1)
 
-    # Set the target color in the palette
+    # Sets the target color in the palette
     pdb.gimp_context_set_foreground(RGB(
         fill_color.r if fill_color.r < 1.0 else fill_color.r / 255.0,
         fill_color.g if fill_color.g < 1.0 else fill_color.g / 255.0,
@@ -146,12 +143,48 @@ def get_outline_pixels_positions(image, layer, color, fill_color):
         fill_color.a if fill_color.a < 1.0 else fill_color.a / 255.0
     ))
 
-    # Fill the selection with the target color
+    # Fills the selection with the target color
     pdb.gimp_edit_bucket_fill(layer, 0, 0, 100, 0, False, 0, 0)
 
     gimp.progress_init("Saving the outline pixels...")
+
+    # Clears an eventual selection on the image
+    pdb.gimp_selection_clear(image)
+
     return search_pixel(layer, color, target_pixel, [])
 
+def draw_line(layer, target_points, other_points):
+    """ Draws a line in the layer between the two set of points
+    :param layer:
+    :param target_points:
+    :param other_points:
+    :return:
+    """
+    # Now it does the line to point out the maximum distance
+    red = (1.0, 0.0, 0.0, 1.0)
+    green = (0.0, 1.0, 0.0, 1.0)
+
+    # Draws a line that connects the two points
+    pdb.gimp_context_set_foreground(RGB(*green))
+    pdb.gimp_context_set_brush_size(2)
+    pdb.gimp_pencil(layer, 4,
+                    [target_points[0][0], target_points[0][1], target_points[1][0], target_points[1][1]])
+    pdb.gimp_context_set_brush_size(1)
+    pdb.gimp_pencil(layer, 4,
+                    [other_points[0][0], other_points[0][1], other_points[1][0], other_points[1][1]])
+
+    # Draws the points - First point
+    pdb.gimp_context_set_foreground(RGB(*red))
+    pdb.gimp_context_set_brush_size(2)
+    pdb.gimp_pencil(layer, 2, [target_points[0][0], target_points[0][1]])
+    pdb.gimp_context_set_brush_size(1)
+    pdb.gimp_pencil(layer, 2, [other_points[0][0], other_points[0][1]])
+
+    # Second point
+    pdb.gimp_context_set_brush_size(2)
+    pdb.gimp_pencil(layer, 2, [target_points[1][0], target_points[1][1]])
+    pdb.gimp_context_set_brush_size(1)
+    pdb.gimp_pencil(layer, 2, [other_points[1][0], other_points[1][1]])
 
 def hausdorff_distance(path, color, fill_color, path_to_result_file):
     """ Calculate the hausdorff distance.
@@ -170,49 +203,76 @@ def hausdorff_distance(path, color, fill_color, path_to_result_file):
     gimp.progress_init("Initializing Hausdorff distance...")
 
     try:
-        # Calculate the numbers of images saved in the specified directory
-        numbers_of_images = len([name for name in os.listdir(path) \
-            if '.png' in name]) / 2
+        # Calculates the numbers of images saved in the specified directory
+        numbers_of_images = int(floor(len([name for name in os.listdir(path) \
+            if '.png' in name]) / 2))
         with open("%s/results.csv" % path_to_result_file, 'w') as file:
             file.write("Reference image;Deviated image;Distance\n")
 
         for index in range(1, numbers_of_images + 1):
-            gimp.message('Loading: %s/a%d.png' % (path, index))
-            # Charge the ref image in memory
+            # Loads the reference image in memory
             base_image = pdb.file_png_load('%s/a%d.png' % (path, index), '')
-            ref_layer = base_image.layers[0] # Retrieve the ref layer
+            ref_layer = base_image.layers[0] # Retrieves the ref layer
 
-            # Charge the deviated image as layer to the ref image
+            # Loads the deviated image as layer to the image
             dev_layer = pdb.gimp_file_load_layer(base_image, '%s/b%d.png' % (path, index))
             pdb.gimp_image_insert_layer(base_image, dev_layer, None, 0)
 
-            # Outline the first layer
-            ref_layer_outline_pixels_positions_list = get_outline_pixels_positions(
+            # Creates the outline of the reference layer
+            ref_layer_outline_pixels_positions = get_outline_pixels_positions(
                 base_image, ref_layer, color, fill_color)
+            gimp.message("Analyzed: %s, %d outline pixels"
+                         % (ref_layer.name, len(ref_layer_outline_pixels_positions)))
 
-            # Outline the second layer
-            dev_layer_outline_pixels_positions_list = get_outline_pixels_positions(
+            # Creates the outline of the deviated layer
+            dev_layer_outline_pixels_positions = get_outline_pixels_positions(
                 base_image, dev_layer, color, fill_color)
+            gimp.message("Analyzed: %s, %d outline pixels"
+                         % (dev_layer.name, len(dev_layer_outline_pixels_positions)))
 
-            # Retrieve the maxmin distance of first layer, with the two points...
+            # Retrieves the maxmin distance of first layer, with the two points...
             ref_layer_distance, ref_pixel_one, ref_pixel_two = get_maximum_distance(
-                ref_layer_outline_pixels_positions_list, dev_layer_outline_pixels_positions_list)
+                ref_layer_outline_pixels_positions, dev_layer_outline_pixels_positions)
 
             # ...and the maxmin distance and the points of the second layer.
             dev_layer_distance, dev_pixel_one, dev_pixel_two = get_maximum_distance(
-                dev_layer_outline_pixels_positions_list, ref_layer_outline_pixels_positions_list)
+                dev_layer_outline_pixels_positions, ref_layer_outline_pixels_positions)
 
-            # Now i make the lines to point out the two distances (obviously, the
-            # maximum distance will have a wider line)
-            red = (255.0, 0.0, 0.0, 255.0)
+
+            # Merges the layers to point out the maximum distance
+            pdb.gimp_layer_set_mode(dev_layer, 7)
+            pdb.gimp_image_merge_down(base_image, dev_layer, 1)
+            merged_layer = base_image.layers[0]
+            pdb.gimp_layer_set_mode(merged_layer, 0)
+
+            distance = 0.0
+            if ref_layer_distance >= dev_layer_distance:
+                distance = ref_layer_distance
+                draw_line(merged_layer, [ref_pixel_one, ref_pixel_two], [dev_pixel_one, dev_pixel_two])
+            else:
+                distance = dev_layer_distance
+                draw_line(merged_layer, [dev_pixel_one, dev_pixel_two], [ref_pixel_one, ref_pixel_two])
+
+            # Inserts the text layer
+            text_layer = pdb.gimp_text_layer_new(
+                base_image, "Hausdorff distance: %f" % distance, "Verdana", 14, 0)
+            pdb.gimp_image_insert_layer(base_image, text_layer, None, 0)
+            pdb.gimp_layer_translate(text_layer, 5, 5)
+
+            # Merging the layers
+            pdb.gimp_layer_set_mode(text_layer, 7)
+            pdb.gimp_image_merge_down(base_image, text_layer, 1)
+            merged_layer = base_image.layers[0]
+
+            # Saves the merged image
+            pdb.gimp_file_save(base_image, merged_layer, '%s/c%d.png' % (path, index), '')
+
+            # Writes the results
+            with open("%s/results.csv" % path_to_result_file, 'a') as file:
+                file.write("A%d;B%d;%f\n" % (index, index, distance))
 
             # Close the generated image
             pdb.gimp_image_delete(base_image)
-
-            # Writes the results
-            distance = max(ref_layer_distance, dev_layer_distance)
-            with open("%s/results.csv" % path_to_result_file, 'a') as file:
-                file.write("A%d;B%d;%f\n" % (index, index, distance))
     except Exception as e:
         gimp.message("Unexpected error: %s." % e.message)
         gimp.message("It was not possible to calculate the distance.")
@@ -230,8 +290,8 @@ register(
     [
         (PF_DIRNAME, "path", """The path where the images to analyse are
             saved.""", None),
-        (PF_COLOR, "color", "The outline's color.", gimpcolor.RGB(*(255.0, 255.0, 255.0, 255.0))),
-        (PF_COLOR, "fill_color", "The filling color", gimpcolor.RGB(*(0.0, 0.0, 0.0, 255.0))),
+        (PF_COLOR, "color", "The outline's color.", gimpcolor.RGB(*(1.0, 1.0, 1.0, 1.0))),
+        (PF_COLOR, "fill_color", "The filling color", gimpcolor.RGB(*(0.0, 0.0, 0.0, 1.0))),
         (PF_DIRNAME, "path_to_result_file", """The path of the CSV file how to
             save the results distances""", None)
     ],
