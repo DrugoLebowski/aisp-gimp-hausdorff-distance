@@ -62,7 +62,7 @@ def get_maximum_distance(ref_list, dev_list):
     return maximum_distance, point_one, point_two
 
 
-def search_outline_pixels(layer, color, pixel, outline_pixels):
+def search_outline_pixels(layer, color, pixel, from_pixel, outline_pixels):
     """ Searches the outline pixels with a DFS
 
         Args:
@@ -89,11 +89,15 @@ def search_outline_pixels(layer, color, pixel, outline_pixels):
                 (pixel[0] - 1, pixel[1])  # Left
             ]
 
+            for p in target_pixels:
+                if p == from_pixel:
+                    target_pixels.remove(p)
+
             # Searching
             for target_pixel in target_pixels:
                 if target_pixel not in outline_pixels:
                     outline_pixels = search_outline_pixels(
-                        layer, color, target_pixel, outline_pixels)
+                        layer, color, target_pixel, pixel, outline_pixels)
             return outline_pixels
         else:
             return outline_pixels
@@ -270,7 +274,7 @@ def get_outline_pixels_positions(image, layer, color, fill_color):
 
     gimp.progress_init("Saving the outline pixels...")
 
-    return search_outline_pixels(layer, color, target_pixels[0], [])
+    return search_outline_pixels(layer, color, target_pixels[0], None, [])
 
 def draw_line(layer, target_points, other_points):
     """ Draws a line in the layer between the two set of points
@@ -329,8 +333,8 @@ def hausdorff_distance(path, color, fill_color, path_to_result_file):
 
     try:
         # Calculates the numbers of images saved in the specified directory
-        numbers_of_images = int(floor(len([name for name in os.listdir(path) \
-            if '.png' in name]) / 2))
+        numbers_of_images = len([name for name in os.listdir(path) \
+            if '.png' in name and 'a' in name])
         with open("%s/results.csv" % path_to_result_file, 'w') as file:
             file.write("Reference image;Deviated image;Distance\n")
 
