@@ -89,6 +89,7 @@ def search_outline_pixels(layer, color, pixel, from_pixel, outline_pixels):
                 (pixel[0] - 1, pixel[1])  # Left
             ]
 
+            # Removes the pixel from which the search comes
             for p in target_pixels:
                 if p == from_pixel:
                     target_pixels.remove(p)
@@ -145,6 +146,7 @@ def are_pixels_connected(layer, color, pixel, from_pixel, starting_pixel,
                     (pixel[0] - 1, pixel[1])  # Left
                 ]
 
+                # Remove the pixel from which the search comes
                 for p in target_pixels:
                     if p == from_pixel:
                         target_pixels.remove(p)
@@ -291,7 +293,7 @@ def draw_line(layer, target_points, other_points):
     red = (1.0, 0.0, 0.0, 1.0)
     green = (0.0, 1.0, 0.0, 1.0)
 
-    # Draws a line that connects the two points
+    # Draws the line that connects the two couples of points
     pdb.gimp_context_set_foreground(RGB(*green))
     pdb.gimp_context_set_brush_size(2)
     pdb.gimp_pencil(layer, 4,
@@ -300,13 +302,13 @@ def draw_line(layer, target_points, other_points):
     pdb.gimp_pencil(layer, 4,
                     [other_points[0][0], other_points[0][1], other_points[1][0], other_points[1][1]])
 
-    # Draws the points - First point
+    # Draws the points that are most distant between the two couples
     pdb.gimp_context_set_foreground(RGB(*red))
     pdb.gimp_context_set_brush_size(2)
     pdb.gimp_pencil(layer, 2, [target_points[0][0], target_points[0][1]])
     pdb.gimp_pencil(layer, 2, [target_points[1][0], target_points[1][1]])
 
-    # Second point
+    # Draws the other two points
     pdb.gimp_context_set_brush_size(1)
     pdb.gimp_pencil(layer, 2, [other_points[0][0], other_points[0][1]])
     pdb.gimp_pencil(layer, 2, [other_points[1][0], other_points[1][1]])
