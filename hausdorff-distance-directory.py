@@ -392,6 +392,7 @@ def hausdorff_distance(path, color, fill_color, path_to_result_file):
                 draw_line(merged_layer, [dev_pixel_one, dev_pixel_two], [ref_pixel_one, ref_pixel_two])
 
             # Inserts the text layer
+            pdb.gimp_context_set_foreground(RGB(1.0, 1.0, 1.0, 1.0))
             text_layer = pdb.gimp_text_layer_new(
                 base_image, "Hausdorff distance: %f" % distance, "Verdana", 14, 0)
             pdb.gimp_image_insert_layer(base_image, text_layer, None, 0)
